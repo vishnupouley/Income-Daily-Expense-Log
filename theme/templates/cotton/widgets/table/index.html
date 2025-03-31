@@ -1,0 +1,15 @@
+{% load static custom_filters %}
+<div class="{{ target }}">
+    <input type="hidden" name="sorting" value="{{ sorting }}" />
+    <c-widgets.table.table-header :columns="columns" :all-columns="all_columns" :pagination="pagination" :requested-columns="requested_columns"></c-widgets.table.table-header>
+    <div class="bg-surface-light shadow rounded-lg">
+        <div class="h-min-[36rem] overflow-y-auto overflow-x-auto overflow-hidden custom-scrollbar px-2 pb-3">
+            <table class="min-w-full border-collapse border border-surface-light"
+                   id="hTable_{{ target }}">
+                <c-widgets.table.table-head :columns="columns"></c-widgets.table.table-head>
+                <c-widgets.table.table-body :data="data" :columns="columns"></c-widgets.table.table-body>
+            </table>
+        </div>
+    </div>
+    <c-widgets.table.table-footer :columns="columns" :pagination="pagination"></c-widgets.table.table-footer>
+</div>

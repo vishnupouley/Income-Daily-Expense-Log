@@ -1,0 +1,43 @@
+{% load static i18n custom_filters %}
+<tbody id="hTB_{{ target }}" class="bg-secondary">
+    {% for row in data %}
+        <tr id="hTR_{{ target }}_{{ row.id }}" class="even:bg-secondary odd:bg-surface-light text-nowrap">
+            {% if 'checkbox' in table_controls %}
+                <th class="border-b border-secondary ps-6 py-4 text-left text-sm font-medium text-surface-dark">
+                    {% is_checked row checkbox as is_assign %}
+                    {% if is_assign %}
+                        <input type="checkbox"
+                               checked
+                               class="peer cursor-pointer appearance-none border-2 checked:bg-primary text-primary checked:border-primary transition-all hover:before:opacity-10 focus:ring-0 focus:ring-offset-0 focus:outline-none focus:shadow-none "
+                               name="ids"
+                               id="ids"
+                               value="{{ row|get_item:'id' }}">
+                        <input type="hidden" name="exists_ids" value="{{ row|get_item:'id' }}">
+                    {% else %}
+                        <input type="checkbox"
+                               class="peer cursor-pointer appearance-none border-2 checked:bg-primary text-primary checked:border-primary transition-all hover:before:opacity-10 focus:ring-0 focus:ring-offset-0 focus:outline-none focus:shadow-none "
+                               name="ids"
+                               id="ids"
+                               value="{{ row|get_item:'id' }}">
+                    {% endif %}
+                </th>
+            {% endif %}
+            {% for column in columns %}
+                {% if not column.hidden %}
+                    <td class="px-6 py-2 text-sm last:rounded-r-md">{{ row|get_item:column.name|default:'' }}</td>
+                {% endif %}
+            {% endfor %}
+            {% for x, y in widget_columns %}
+                <td class="px-6 py-2 last:rounded-r-md">{% include y with data=row %}</td>
+            {% endfor %}
+        </tr>
+    {% endfor %}
+    {% if not data %}
+        <tr class="even:bg-secondary odd:bg-surface-light">
+            {% with len=widget_columns|length %}
+                <td colspan="{{ columns|length|add:len }}"
+                    class="px-6 py-4 border-b text-center font-medium">{% trans "No Record Found" %}</td>
+            {% endwith %}
+        </tr>
+    {% endif %}
+</tbody>
