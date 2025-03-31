@@ -1,17 +1,18 @@
 {% load static tailwind_tags django_htmx %}
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-    <title>{{ title }}</title>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<meta http-equiv="X-UA-Compatible" content="ie=edge">
-		{% tailwind_css %}
-		{% htmx_script %}
-		<script src="{% static 'alpine/alpine.cdn.min.js' %}"></script>
-		<script src="{% static 'hyperscript/_hyperscript.min.js' %}"></script>
-	</head>
-	<body>
-		{{ slot }}
-	</body>
+    <head>
+        <title>{{ title }}</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <meta name="keywords" content="django, tailwindcss, alpinejs, python, full stack, web development, best practices, code quality, code readability">
+        <meta name="description" content="A full stack web development project made with Django, using Tailwind CSS and Alpine.js.">
+        <meta name="author" content="Vishnu Vardhan">
+        {% tailwind_css %}
+        {% htmx_script %}
+        <script src="{% static 'alpine/alpine.cdn.min.js' %}"></script>
+        <script src="{% static 'hyperscript/_hyperscript.min.js' %}"></script>
+    </head>
+    <body>{{ slot }}</body>
 </html>

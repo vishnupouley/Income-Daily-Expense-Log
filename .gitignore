@@ -6,7 +6,6 @@ __pycache__/
 staticfiles/
 locale/
 media/
-theme/static/css/dist/styles.css
 db.sqlite3
 *.sqlite3
 .pytest_cache
