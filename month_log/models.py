@@ -12,6 +12,9 @@ class MonthLog(models.Model):
     def __str__(self):
         return self.description
 
+    def get_amount(self):
+        return f"₹{self.amount}"
+
     class Meta:
         verbose_name = _("Month Log")
         verbose_name_plural = _("Month Logs")
