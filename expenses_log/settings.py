@@ -43,10 +43,8 @@ DJANGO_APPS = [
 # Third-Party Apps
 THIRD_PARTY_APPS = [
     'tailwind',
-    'rosetta',
     'django_htmx',
     'django_cotton',
-    'simple_history',
     'django_browser_reload',
 ]
 

@@ -1,0 +1,64 @@
+{% load static i18n custom_filters %}
+<!-- Pagination -->
+<div class="flex flex-wrap justify-between items-center mt-4">
+    <div class="flex items-center space-x-2">
+        <span class="text-sm text-surface-dark">{% trans "Show" %}</span>
+        {{ pagination.per_page }}
+        <!-- Items Per Page -->
+        <select name="limit"
+                id="limit"
+                class="bg-surface-light rounded-full text-surface-dark text-sm py-[0.18rem] pr-7 indent-0 border-none outline-none focus:border-none focus:outline-none focus:ring-0"
+                hx-get="{{ list_url }}"
+                hx-target="#{{ target }}"
+                hx-trigger="change"
+                hx-swap="innerHTML"
+                hx-include="closest #{{ target }}"
+                hx-params="*">
+            {% for option in pagination.per_page_options %}
+                <option value="{{ option }}" {% if option == pagination.per_page %} selected {% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="text-sm text-gray-600">
+        {% trans "Showing" %} {{ pagination.start_item }} {% trans "to" %} {{ pagination.end_item }} {% trans "of" %} {{ pagination.total_data }} {% trans "entries" %}
+    </div>
+    <div class="flex items-center space-x-2 justify-end ">
+        {% if pagination.has_previous %}
+            <a href="#"
+               class="text-gray-700 hover:text-white px-3 py-2 rounded-lg group"
+               hx-get="{{ list_url }}"
+               hx-include="closest #{{ target }}"
+               hx-params="*"
+               hx-vals='{"page": "{{ pagination.previous_page }}"}'
+               hx-target="#{{ target }}">
+                <img src="{% static 'img/svg/page_left.svg' %}"
+                     alt="Page Left"
+                     width="fit-content"
+                     height="fit-content">
+            </a>
+        {% endif %}
+        {% for num in pagination.page_range %}
+            <a href="#"
+               class="{% if pagination.current_page == num %}bg-surface-dark text-white{% else %}text-surface-dark hover:bg-surface-dark hover:text-white{% endif %} px-3 py-1 rounded-lg"
+               hx-get="{{ list_url }}"
+               hx-include="closest #{{ target }}"
+               hx-params="*"
+               hx-vals='{"page": "{{ num }}"}'
+               hx-target="#{{ target }}">{{ num }}</a>
+        {% endfor %}
+        {% if pagination.has_next %}
+            <a href="#"
+               class="text-gray-700 hover:text-white px-3 py-2 rounded-lg group"
+               hx-get="{{ list_url }}"
+               hx-include="closest #{{ target }}"
+               hx-params="*"
+               hx-vals='{"page": "{{ pagination.next_page }}"}'
+               hx-target="#{{ target }}">
+                <img src="{% static 'img/svg/page_right.svg' %}"
+                     alt="Page Right"
+                     width="fit-content"
+                     height="fit-content">
+            </a>
+        {% endif %}
+    </div>
+</div>

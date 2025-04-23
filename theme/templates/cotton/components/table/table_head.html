@@ -1,0 +1,10 @@
+{% load static custom_filters %}
+<thead class="bg-surface-light" id="hTableHead">
+    <tr>
+        {% for column in columns %}
+            <th class="border-b border-secondary ps-6 py-4 text-left text-sm font-medium text-surface-dark text-nowrap">
+                {{ column|safe }}
+            </th>
+        {% endfor %}
+    </tr>
+</thead>
