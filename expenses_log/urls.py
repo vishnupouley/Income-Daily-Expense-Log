@@ -19,6 +19,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('month-log/', include('month_log.urls')),
     path("__reload__", include("django_browser_reload.urls")),
+    path('month-log/', include('month_log.urls')),
+    path('sampletable/', include('sampletable.urls')),
 ]

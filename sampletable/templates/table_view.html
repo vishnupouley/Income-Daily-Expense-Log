@@ -1,0 +1,100 @@
+{% load static custom_filters %}
+<!-- table_view.html with Alpine.js -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>HTMX Table Sorting with Alpine.js</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="HTMX Table Sorting with Alpine.js">
+        <meta name="keywords" content="HTMX, Alpine.js, Table Sorting">
+        <!-- Load HTMX from CDN -->
+        <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.5/dist/htmx.min.js"></script>
+        <!-- Load Alpine.js -->
+        <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.0/dist/cdn.min.js"
+                defer></script>
+        <!-- Load Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+        /* Custom styles for sorting indicators */
+        .sort-asc::after {
+            content: " ↑";
+            color: #4b5563;
+        }
+        .sort-desc::after {
+            content: " ↓";
+            color: #4b5563;
+        }
+        </style>
+    </head>
+    <body class="min-h-screen p-6 bg-gray-100" 
+      x-data="{
+          currentSort: '{{ current_sort|default:'name' }}',
+          
+          isSortedAsc(field) {
+              return this.currentSort === field;
+          },
+          
+          isSortedDesc(field) {
+              return this.currentSort === '-' + field;
+          },
+          
+          getNextSort(field) {
+              if (this.currentSort === field) {
+                  return '-' + field;
+              } else if (this.currentSort === '-' + field) {
+                  return field;
+              } else {
+                  return field;
+              }
+          },
+          
+          updateSortState(field) {
+              this.currentSort = this.getNextSort(field);
+          },
+          
+          refreshSortState() {
+              let sortElement = document.getElementById('current-sort-data');
+              if (sortElement) {
+                  this.currentSort = sortElement.dataset.currentSort;
+              }
+          }
+      }"
+      x-init="
+          document.body.addEventListener('htmx:afterSwap', function(event) {
+              if (event.detail.target.id === 'table-body') {
+                  $data.refreshSortState();
+              }
+          });
+      @htmx:configRequest.window="
+      event.detail.headers['X-Current-Sort'] = currentSort;"
+      @currentSortChanged.window="
+      currentSort = $event.detail.value;"
+  ">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="mb-6 text-3xl font-bold text-gray-800">People Directory</h1>
+        
+        <div class="overflow-hidden bg-white rounded-lg shadow-md">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        {% for column in columns %}
+                        <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase cursor-pointer"
+                            :class="{'sort-asc': isSortedAsc('{{ column }}'), 'sort-desc': isSortedDesc('{{ column }}')}"
+                            hx-get="{% url 'sort_table' %}"
+                            hx-target="#table-body"
+                            hx-trigger="click"
+                            :hx-vals="JSON.stringify({sort: getNextSort('{{ column }}'), current_sort: currentSort})"
+                            @click="updateSortState('{{ column }}')">
+                            {{ verbose_names|get_item:column }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                    {% include "table_body_partial.html" with people=people %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </body>
+</html>
