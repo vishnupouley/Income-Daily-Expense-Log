@@ -15,38 +15,44 @@
         <!-- Load Tailwind CSS -->
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
-        /* Custom styles for sorting indicators */
-        .sort-asc::after {
-            content: " ↑";
-            color: #4b5563;
+        .json-table-active-sort {
+            stroke: #1f2937; /* gray-800 */
+            stroke-width: 2;
         }
-        .sort-desc::after {
-            content: " ↓";
-            color: #4b5563;
+        
+        .json-table-inactive-sort {
+            stroke: #9ca3af;
+            stroke-width: 1.5;
+        }
+        
+        .json-table-sort-icon {
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 4px;
         }
         </style>
     </head>
     <body class="min-h-screen p-6 bg-gray-100" 
       x-data="{
-          currentSort: '{{ current_sort|default:'name' }}',
-          
+          currentSort: '{{ current_sort }}',
           isSortedAsc(field) {
               return this.currentSort === field;
           },
-          
           isSortedDesc(field) {
               return this.currentSort === '-' + field;
           },
-          
+          isSortedNone(field) {
+              return this.currentSort === field + '-';
+          },
           getNextSort(field) {
               if (this.currentSort === field) {
-                  return '-' + field;
-              } else if (this.currentSort === '-' + field) {
-                  return field;
-              } else {
-                  return field;
-              }
-          },
+            return '-' + field;  // First click: ascending → descending
+        } else if (this.currentSort === '-' + field) {
+            return field + '-';  // Second click: descending → none
+        } else {
+            return field;        // Third click or default: none → ascending
+        }
+      },
           
           updateSortState(field) {
               this.currentSort = this.getNextSort(field);
@@ -62,14 +68,12 @@
       x-init="
           document.body.addEventListener('htmx:afterSwap', function(event) {
               if (event.detail.target.id === 'table-body') {
-                  $data.refreshSortState();
+                  refreshSortState();
               }
           });
-      @htmx:configRequest.window="
-      event.detail.headers['X-Current-Sort'] = currentSort;"
-      @currentSortChanged.window="
-      currentSort = $event.detail.value;"
-  ">
+      "
+      @htmx:configRequest.window="event.detail.headers['X-Current-Sort'] = currentSort"
+      @currentSortChanged.window="currentSort = $event.detail.value">
     <div class="max-w-6xl mx-auto">
         <h1 class="mb-6 text-3xl font-bold text-gray-800">People Directory</h1>
         
@@ -79,13 +83,24 @@
                     <tr>
                         {% for column in columns %}
                         <th class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase cursor-pointer"
-                            :class="{'sort-asc': isSortedAsc('{{ column }}'), 'sort-desc': isSortedDesc('{{ column }}')}"
                             hx-get="{% url 'sort_table' %}"
                             hx-target="#table-body"
                             hx-trigger="click"
                             :hx-vals="JSON.stringify({sort: getNextSort('{{ column }}'), current_sort: currentSort})"
                             @click="updateSortState('{{ column }}')">
-                            {{ verbose_names|get_item:column }}
+                            <span>{{ verbose_names|get_item:column }}</span>
+                            <span class="json-table-sort-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 18L16 6M16 6L20 10.125M16 6L12 10.125" 
+                                          :class="isSortedAsc('{{ column }}') ? 'json-table-active-sort' : 'json-table-inactive-sort'" 
+                                          stroke-linecap="round" 
+                                          stroke-linejoin="round"/>
+                                    <path d="M8 6L8 18M8 18L12 13.875M8 18L4 13.875" 
+                                          :class="isSortedDesc('{{ column }}') ? 'json-table-active-sort' : 'json-table-inactive-sort'" 
+                                          stroke-linecap="round" 
+                                          stroke-linejoin="round"/>
+                                </svg>
+                            </span>
                         </th>
                         {% endfor %}
                     </tr>
