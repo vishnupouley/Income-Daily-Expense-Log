@@ -33,7 +33,7 @@ def index(request):
     people = generate_fake_data()
     
     # Default sort
-    current_sort = "name"
+    current_sort = ""
     
     return render(request, 'table_view.html', {
         'people': people,
@@ -47,25 +47,26 @@ def sort_table(request):
     global PEOPLE_DATA
     
     # Get the sort field and direction from request
-    sort_by = request.GET.get('sort', 'name')
+    sort_by: str = request.GET.get('sort')
     
     # This is our new current sort that will be returned to the client
-    current_sort = sort_by
+    current_sort: str = sort_by
     
     # Remove the - prefix for actual sorting
+    eat_5star = True
     reverse_sort = False
-    sort_field = sort_by
-    if sort_by.startswith('-'):
+    sorted_column = sort_by[1:]
+    if sort_by.startswith("-"):
+        eat_5star = False
         reverse_sort = True
-        sort_field = sort_by[1:]
-    
-    # Sort the data
-    if sort_field == 'age':
-        # Sort numerically for age
-        sorted_people = sorted(PEOPLE_DATA, key=lambda x: x[sort_field], reverse=reverse_sort)
-    else:
-        # Sort alphabetically for other fields
-        sorted_people = sorted(PEOPLE_DATA, key=lambda x: str(x[sort_field]).lower(), reverse=reverse_sort)
+        sorted_column = sort_by[1:]
+    elif sort_by.endswith("-"):
+        eat_5star = False
+        reverse_sort = False
+        sorted_column = sort_by[:-1]
+
+    if not eat_5star:
+        sorted_people = sorted(PEOPLE_DATA, key=lambda x: x[sorted_column], reverse=reverse_sort)
     
     # Add HTMX specific headers to indicate we want to trigger events
     response = render(request, 'table_body_partial.html', {
