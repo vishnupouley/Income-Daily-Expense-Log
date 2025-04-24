@@ -52,6 +52,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'theme',
     'month_log',
+    'sampletable',
 ]
 
 # Combine All Apps
@@ -68,7 +69,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_browser_reload.middleware.BrowserReloadMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
-    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'expenses_log.urls'
