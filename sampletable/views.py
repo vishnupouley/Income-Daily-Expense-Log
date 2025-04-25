@@ -50,27 +50,31 @@ def sort_table(request):
     sort_by: str = request.GET.get('sort')
     
     # This is our new current sort that will be returned to the client
-    current_sort: str = sort_by
-    
-    # Remove the - prefix for actual sorting
-    eat_5star = True
-    reverse_sort = False
-    sorted_column = sort_by[1:]
-    if sort_by.startswith("-"):
-        eat_5star = False
-        reverse_sort = True
-        sorted_column = sort_by[1:]
-    elif sort_by.endswith("-"):
-        eat_5star = False
-        reverse_sort = False
-        sorted_column = sort_by[:-1]
+    current_sort: str | None = sort_by
 
-    if not eat_5star:
-        sorted_people = sorted(PEOPLE_DATA, key=lambda x: x[sorted_column], reverse=reverse_sort)
+    if current_sort is None:
+        current_sort = ""
+    
+    else:
+        # Remove the - prefix for actual sorting
+        eat_5star = True
+        reverse_sort = False
+        sorted_column = sort_by[1:]
+        if sort_by.startswith("-"):
+            eat_5star = False
+            reverse_sort = True
+            sorted_column = sort_by[1:]
+        elif sort_by.endswith("-"):
+            eat_5star = False
+            reverse_sort = False
+            sorted_column = sort_by[:-1]
+
+        if not eat_5star:
+            sorted_people = sorted(PEOPLE_DATA, key=lambda x: x[sorted_column], reverse=reverse_sort)
     
     # Add HTMX specific headers to indicate we want to trigger events
     response = render(request, 'table_body_partial.html', {
-        'people': sorted_people,
+        'people': PEOPLE_DATA if eat_5star else sorted_people,
         'current_sort': current_sort
     })
     response['HX-Trigger'] = f'{{"currentSortChanged": "{current_sort}"}}'
