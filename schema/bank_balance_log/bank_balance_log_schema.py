@@ -1,53 +1,76 @@
-from typing import Optional
-from pydantic import BaseModel, field_validator, Field
-from datetime import time, date
+# bank_log/schemas.py
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+from decimal import Decimal
+from datetime import date, datetime
+from typing import Optional, List, Literal 
 
+# --- Bank Account Schemas ---
+class BankAccountBase(BaseModel):
+    initial_balance: Decimal = Field(..., ge=0, description="The balance to set for the bank account.")
 
-class BankBalanceLogCreateSchema(BaseModel):
-    transaction_type: str = Field(..., description="Transaction type")
-    amount: float = Field(..., description="Amount")
-    description: Optional[str] = Field("Transaction", description="Description")
+class BankAccountCreateOrUpdate(BankAccountBase):
+    pass
 
-    @field_validator("amount", mode="after")
-    def validate_amount(cls, v):
-        return float(v)
+class BankAccountSchema(BaseModel):
+    id: int
+    user_id: int
+    current_balance: Decimal
+    last_updated: datetime
+    created_at: datetime
 
-    class Config:
-        form_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-class BankBalanceLogResponseSchema(BaseModel):
-    _id: int
-    date_of_transaction: date = Field(..., description="Date of transaction")
-    time_of_transaction: time = Field(..., description="Time of transaction")
-    transaction_type: str = Field(..., description="Transaction type")
-    amount: float = Field(..., description="Amount")
-    description: Optional[str] = Field("Basic Transaction", description="Description")
+# --- Bank Transaction Schemas ---
+class BankTransactionBase(BaseModel):
+    transaction_type: Literal['DEBIT', 'CREDIT']
+    amount: Decimal = Field(..., gt=0, description="Transaction amount, always positive.")
+    description: str = Field(..., min_length=1, max_length=255)
+    date_logged: Optional[datetime] = Field(default_factory=datetime.now) 
 
-    class Config:
-        form_attributes = True
+class BankTransactionCreateRequest(BankTransactionBase):
+    pass
 
+class BankTransactionSchema(BankTransactionBase):
+    id: int
+    user_id: int 
+    account_id: int
+    date_logged: datetime
+    balance_after_transaction: Decimal
+    created_at: datetime
+    updated_at: datetime
 
-class BankBalanceLogDeleteSchema(BaseModel):
-    _id: int
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        form_attributes = True
+# --- Filtering and Utility Schemas ---
+class BankDateFilterSchema(BaseModel): 
+    id: int 
+    date_value: str 
+    display_text: str 
 
+class BankTransactionFilterInputSchema(BaseModel):
+    filter_date: Optional[date] = None
+    filter_month_year: Optional[str] = None 
+    page: int = Field(1, gt=0)
+    page_size: int = Field(10, gt=0, le=100)
+    sort_by: Optional[str] = None 
+    transaction_type: Optional[Literal['DEBIT', 'CREDIT']] = None
 
-class BankBalanceUpdateSchema(BaseModel):
-    bank_balance: float = Field(..., description="Bank balance")
+    @field_validator('filter_month_year')
+    @classmethod
+    def validate_month_year_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, "%Y-%m") 
+            return v
+        except ValueError:
+            raise ValueError("filter_month_year must be in YYYY-MM format")
 
-    @field_validator("bank_balance", mode="after")
-    def validate_bank_balance(cls, v):
-        return float(v)
-
-    class Config:
-        form_attributes = True
-
-
-class BankBalanceResponseSchema(BaseModel):
-    _id: int
-    bank_balance: float = Field(..., description="Bank balance")
-
-    class Config:
-        form_attributes = True
+class BankLogViewData(BaseModel):
+    bank_account: Optional[BankAccountSchema] = None
+    transactions: List[BankTransactionSchema] = []
+    total_transaction_count: int = 0
+    date_filters: List[BankDateFilterSchema] = []
+    current_page: int
+    total_pages: int
+    page_size: int

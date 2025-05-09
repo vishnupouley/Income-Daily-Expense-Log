@@ -3,7 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
-# from django.db import transaction # Not directly used here, used in services.py
+from django.db import transaction # For F expressions if needed
 
 class BankAccount(models.Model):
     """
@@ -20,17 +20,15 @@ class BankAccount(models.Model):
 class BankTransaction(models.Model):
     """
     Stores individual bank transactions (debit or credit).
-    Amount is always stored as a positive value.
     """
     class TransactionType(models.TextChoices):
-        DEBIT = 'DEBIT', 'Debit'      # Money leaving the account (e.g., an expense payment, withdrawal)
-        CREDIT = 'CREDIT', 'Credit'    # Money entering the account (e.g., a salary deposit, refund)
+        DEBIT = 'DEBIT', 'Debit'
+        CREDIT = 'CREDIT', 'Credit'
 
     account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='transactions')
-    # Added user to transaction for easier direct queries by user if needed, though account also links to user.
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_transactions') 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_transactions') # For easier querying by user
     transaction_type = models.CharField(max_length=6, choices=TransactionType.choices)
-    amount = models.DecimalField(max_digits=10, decimal_places=2) # Always positive
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.CharField(max_length=255)
     # Stores the balance of the account *after* this transaction was processed.
     balance_after_transaction = models.DecimalField(max_digits=12, decimal_places=2)

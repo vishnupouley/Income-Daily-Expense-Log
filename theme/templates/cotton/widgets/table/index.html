@@ -1,28 +1,13 @@
 {% load static custom_filters %}
 <div class="{{ target }}">
-    <c-widgets.table.table-header 
-        selected_date="{{ selected_date }}" 
-        :date_list="date_list" 
-        list_url="{{ htmx.list_url }}" 
-        target="{{ htmx.target }}" 
-        per_page="{{ pagination.per_page }}"
-    ></c-widgets.table.table-header>
+    <c-widgets.table.table-header selected_date="{{ selected_date }}" :date_list="date_list" list_url="{{ htmx.list_url }}" target="{{ htmx.target }}" per_page="{{ pagination.per_page }}"></c-widgets.table.table-header>
     <div class="bg-surface-light shadow rounded-lg">
         <div class="h-min-[36rem] overflow-y-auto overflow-x-auto overflow-hidden custom-scrollbar px-2 pb-3">
             <table class="min-w-full border-collapse border border-surface-light">
                 <c-json-table.table-head :columns="visible_columns"></c-json-table.table-head>
-                <c-json-table.table-body 
-                    :data="data" 
-                    :columns="columns" 
-                    target="{{ htmx.target }}" 
-                    :widget_columns="widget_columns"
-                ></c-json-table.table-body>
+                <c-json-table.table-body :data="data" :columns="columns" target="{{ htmx.target }}" :widget_columns="widget_columns"></c-json-table.table-body>
             </table>
         </div>
     </div>
-    <c-json-table.table-footer 
-        :pagination="pagination" 
-        target="{{ htmx.target }}" 
-        list_url="{{ htmx.list_url }}"
-    ></c-json-table.table-footer>
+    <c-json-table.table-footer :pagination="pagination" target="{{ htmx.target }}" list_url="{{ htmx.list_url }}"></c-json-table.table-footer>
 </div>
