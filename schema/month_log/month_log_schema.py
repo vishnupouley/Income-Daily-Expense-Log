@@ -1,60 +1,87 @@
-from typing import Optional
-from pydantic import BaseModel, field_validator, Field
-from datetime import datetime, date, time
+# monthly_income/schemas.py
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+from decimal import Decimal
+from datetime import date, datetime
+from typing import Optional, List
 
+# --- Monthly Salary Schemas ---
+class MonthlySalaryBase(BaseModel):
+    salary_amount: Decimal = Field(..., gt=0, description="The amount of monthly salary.")
+    month_year: date # Expects YYYY-MM-DD, will represent the first day of the month.
 
-class MonthLogCreateSchema(BaseModel):
-    expense: float = Field(..., description="Expense amount")
-    description: Optional[str] = Field(
-        "Daily expenses", description="Description of expense")
+    @field_validator('month_year')
+    @classmethod
+    def ensure_first_day_of_month(cls, v: date) -> date:
+        if v.day != 1:
+            return date(v.year, v.month, 1)
+        return v
 
-    @field_validator("expense", mode="after")
-    def validate_expense(cls, v):
-        return float(v)
+class MonthlySalaryCreate(MonthlySalaryBase):
+    pass
 
-    class Config:
-        form_attributes = True
+class MonthlySalarySchema(MonthlySalaryBase):
+    id: int
+    user_id: int # Assuming you have a user model with an int PK
+    created_at: datetime
+    updated_at: datetime
 
+    model_config = ConfigDict(from_attributes=True)
 
-class MonthLogResponseSchema(BaseModel):
-    _id: int
-    date_of_expense: date = Field(..., description="Date of expense")
-    time_of_expense: time = Field(..., description="Time of expense")
-    expense: float = Field(..., description="Expense amount")
-    description: str = Field(..., description="Description of expense")
-    balance: float = Field(..., description="Balance amount")
+# --- Expense Schemas ---
+class ExpenseBase(BaseModel):
+    amount: Decimal = Field(..., gt=0, description="Amount spent.")
+    description: str = Field(..., min_length=1, max_length=255)
+    date_logged: Optional[datetime] = Field(default_factory=datetime.now, description="Date and time of the expense. Defaults to now.")
 
-    class Config:
-        form_attributes = True
+class ExpenseCreate(ExpenseBase):
+    pass
 
+class ExpenseUpdate(BaseModel):
+    amount: Optional[Decimal] = Field(None, gt=0, description="New amount spent.")
+    description: Optional[str] = Field(None, min_length=1, max_length=255, description="New description.")
+    date_logged: Optional[datetime] = Field(None, description="New date and time of the expense.")
 
-class MonthLogDeleteSchema(BaseModel):
-    _id: int
+class ExpenseSchema(ExpenseBase):
+    id: int
+    user_id: int
+    date_logged: datetime 
+    balance_after_this_expense_in_month: Optional[Decimal] = None 
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        form_attributes = True
+# --- Filtering and Utility Schemas ---
+class DateFilterSchema(BaseModel):
+    id: int 
+    date_value: str 
+    display_text: str 
 
+class ExpenseFilterInputSchema(BaseModel):
+    filter_date: Optional[date] = None 
+    filter_month_year: Optional[str] = None # Expects "YYYY-MM" format
+    page: int = Field(1, gt=0)
+    page_size: int = Field(10, gt=0, le=100) 
+    sort_by: Optional[str] = None 
 
-class MonthSalaryCreateSchema(BaseModel):
-    salary: float = Field(..., description="Salary amount")
-    date_of_salary: str = Field(..., description="Date of salary")
-
-    @field_validator("salary", mode="after")
-    def validate_salary(cls, v):
-        return float(v)
-
-    @field_validator("date_of_salary", mode="after")
-    def validate_date_of_salary(cls, v):
-        return datetime.strptime(v, "%Y-%m-%d")
-
-    class Config:
-        form_attributes = True
-
-
-class MonthSalaryResponseSchema(BaseModel):
-    _id: int
-    salary: float = Field(..., description="Salary amount")
-    date_of_salary: str = Field(..., description="Date of salary")
-
-    class Config:
-        form_attributes = True
+    @field_validator('filter_month_year')
+    @classmethod
+    def validate_month_year_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, "%Y-%m")
+            return v
+        except ValueError:
+            raise ValueError("filter_month_year must be in YYYY-MM format")
+        
+class MonthlyLogViewData(BaseModel):
+    current_salary: Optional[MonthlySalarySchema] = None
+    total_spent_this_month: Decimal = Decimal('0.00')
+    saved_amount_this_month: Decimal = Decimal('0.00')
+    expenses: List[ExpenseSchema] = []
+    total_expense_count: int = 0
+    date_filters: List[DateFilterSchema] = []
+    current_page: int
+    total_pages: int
+    page_size: int
