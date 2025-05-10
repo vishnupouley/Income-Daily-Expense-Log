@@ -53,6 +53,10 @@ module.exports = {
                     info: '#3700CF',
                     warning: '#FFC107',
                 },
+                text: {
+                    light: '#EEEEEE',
+                    dark: '#131313',
+                },
             },
         },
     },

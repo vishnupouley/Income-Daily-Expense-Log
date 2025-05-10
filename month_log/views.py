@@ -16,7 +16,6 @@ from schema.month_log.month_log_schema import (
     ExpenseFilterInputSchema, ExpenseSchema, MonthlyLogContextData  # Updated schema
 )
 from month_log.services import MonthlyIncomeService
-from month_log.models import Expense
 from typing import Optional
 
 
@@ -152,13 +151,7 @@ async def save_new_expense_view(request: HttpRequest) -> HttpResponse:
     salary_amount = salary_for_month_obj.salary_amount if salary_for_month_obj else Decimal(
         '0.00')
 
-    @sync_to_async
-    def get_sum_for_balance(exp_obj, user_obj):
-        return Expense.objects.filter(
-            user=user_obj, date_logged__year=exp_obj.date_logged.year,
-            date_logged__month=exp_obj.date_logged.month, date_logged__lte=exp_obj.date_logged
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    total_spent_up_to = await get_sum_for_balance(new_expense_obj, request.user)
+    total_spent_up_to = await MonthlyIncomeService.get_sum_for_balance(new_expense_obj, request.user)
     expense_schema.balance_after_this_expense_in_month = salary_amount - total_spent_up_to
 
     context = {'row': expense_schema, 'user': request.user}
@@ -207,15 +200,8 @@ async def save_edited_expense_view(request: HttpRequest, expense_id: int) -> Htt
             salary_amt = salary_obj.salary_amount if salary_obj else Decimal(
                 '0.00')
 
-            @sync_to_async
-            def get_sum(exp_obj, user_obj):
-                return Expense.objects.filter(
-                    user=user_obj,
-                    date_logged__year=exp_obj.date_logged.year,
-                    date_logged__month=exp_obj.date_logged.month,
-                    date_logged__lte=exp_obj.date_logged
-                ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-            total_s = await get_sum(expense_to_edit, request.user)
+            
+            total_s = await MonthlyIncomeService.get_sum(expense_to_edit, request.user)
             original_schema.balance_after_this_expense_in_month = salary_amt - total_s
             return render(request, 'month_log/partials/row.html', {'row': original_schema, 'user': request.user})
     except ValidationError as e:
@@ -232,15 +218,8 @@ async def save_edited_expense_view(request: HttpRequest, expense_id: int) -> Htt
     salary_obj = await MonthlyIncomeService.get_monthly_salary(request.user, updated_schema.date_logged.date())
     salary_amt = salary_obj.salary_amount if salary_obj else Decimal('0.00')
 
-    @sync_to_async
-    def get_sum(exp_obj, user_obj):
-        return Expense.objects.filter(
-            user=user_obj,
-            date_logged__year=exp_obj.date_logged.year,
-            date_logged__month=exp_obj.date_logged.month,
-            date_logged__lte=exp_obj.date_logged
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    total_s = await get_sum(updated_obj, request.user)
+
+    total_s = await MonthlyIncomeService.get_sum(updated_obj, request.user)
     updated_schema.balance_after_this_expense_in_month = salary_amt - total_s
 
     context = {'row': updated_schema, 'user': request.user}
@@ -263,15 +242,8 @@ async def cancel_edit_expense_row_view(request: HttpRequest, expense_id: int) ->
     salary_obj = await MonthlyIncomeService.get_monthly_salary(request.user, expense_schema.date_logged.date())
     salary_amt = salary_obj.salary_amount if salary_obj else Decimal('0.00')
 
-    @sync_to_async
-    def get_sum(exp_obj, user_obj):
-        return Expense.objects.filter(
-            user=user_obj,
-            date_logged__year=exp_obj.date_logged.year,
-            date_logged__month=exp_obj.date_logged.month,
-            date_logged__lte=exp_obj.date_logged
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-    total_s = await get_sum(expense, request.user)
+
+    total_s = await MonthlyIncomeService.get_sum(expense, request.user)
     expense_schema.balance_after_this_expense_in_month = salary_amt - total_s
 
     context = {'row': expense_schema, 'user': request.user}

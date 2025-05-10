@@ -270,6 +270,24 @@ class MonthlyIncomeService:
             current_filters_applied=params
         )
 
+    @sync_to_async
+    @staticmethod
+    def get_sum_for_balance(exp_obj, user_obj):
+        return Expense.objects.filter(
+            user=user_obj, date_logged__year=exp_obj.date_logged.year,
+            date_logged__month=exp_obj.date_logged.month, date_logged__lte=exp_obj.date_logged
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    @sync_to_async
+    @staticmethod
+    def get_sum(exp_obj, user_obj):
+        return Expense.objects.filter(
+            user=user_obj,
+            date_logged__year=exp_obj.date_logged.year,
+            date_logged__month=exp_obj.date_logged.month,
+            date_logged__lte=exp_obj.date_logged
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
     @staticmethod
     def _get_last_n_unique_expense_dates_sync(user: User, count: int) -> List[DateFilterSchema]:
         # ... (no changes to this helper method)
