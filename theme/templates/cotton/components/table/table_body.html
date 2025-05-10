@@ -4,17 +4,18 @@
         <tr id="hTR_{{ target }}_{{ row.id }}"
             class="even:bg-secondary odd:bg-surface-light text-nowrap">
             {% for column in columns %}
-            {% if column == 'date' %}
-                <td class="px-6 py-2 text-sm last:rounded-r-md">{{ row|get_item:column|date:"d/m/Y"|default:''|safe }}</td>
-            {% else %}
-                <td class="px-6 py-2 text-sm last:rounded-r-md">{{ row|get_item:column|default:''|safe }}</td>
-            {% endif %}
+                {% if column in widget_columns %}
+                    <td class="px-6 py-2 text-sm last:rounded-r-md">{% include widget_columns|get_item:column with data=row %}</td>
+                {% else %}
+                    <td class="px-6 py-2 text-sm last:rounded-r-md">{{ row|get_item:column|default:''|safe }}</td>
+                {% endif %}
             {% endfor %}
         </tr>
     {% endfor %}
     {% if not data %}
         <tr class="even:bg-secondary odd:bg-surface-light">
-            <td colspan="{{ columns|length }}" class="px-6 py-4 border-b text-center font-medium">{% trans "No Record Found" %}</td>
+            <td colspan="{{ columns|length }}"
+                class="px-6 py-4 border-b text-center font-medium">{% trans "No Record Found" %}</td>
         </tr>
     {% endif %}
 </tbody>

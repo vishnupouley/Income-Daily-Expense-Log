@@ -4,8 +4,8 @@ import json
 
 register = template.Library()
 
-@register.simple_tag(takes_context=True)
-def tojson(context, dict: dict) -> json:
+@register.filter(name='tojson')
+def tojson(dict: dict) -> json:
     """ Convert dictionary to JSON string """
     return mark_safe(json.dumps(dict))
 

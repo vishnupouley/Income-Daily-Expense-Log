@@ -1,9 +1,9 @@
 {% load static i18n custom_filters %}
+{% if not graph %}
 <!-- Pagination -->
 <div class="flex flex-wrap justify-between items-center mt-4">
     <div class="flex items-center space-x-2">
         <span class="text-sm text-surface-dark">{% trans "Show" %}</span>
-        {{ pagination.per_page }}
         <!-- Items Per Page -->
         <select name="limit"
                 id="limit"
@@ -15,7 +15,10 @@
                 hx-include="closest #{{ target }}"
                 hx-params="*">
             {% for option in pagination.per_page_options %}
-                <option value="{{ option }}" {% if option == pagination.per_page %} selected {% endif %}>{{ option }}</option>
+                <option value="{{ option }}" 
+                    {% if option == pagination.per_page %} selected {% endif %}>
+                    {{ option }}
+                </option>
             {% endfor %}
         </select>
     </div>
@@ -62,3 +65,4 @@
         {% endif %}
     </div>
 </div>
+{% endif %}

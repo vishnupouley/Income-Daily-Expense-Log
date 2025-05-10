@@ -1,46 +1,47 @@
-# bank_log/models.py
-from django.db import models
-from django.conf import settings
+# monthly_income/models.py
 from django.utils import timezone
+from django.conf import settings
+from django.db import models
 from decimal import Decimal
-# from django.db import transaction # Not directly used here, used in services.py
 
-class BankAccount(models.Model):
+class MonthlySalary(models.Model):
     """
-    Represents a user's bank account. For simplicity, one account per user.
+    Stores the user's declared monthly salary for a specific month.
     """
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_account')
-    current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
-    last_updated = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='monthly_salaries')
+    salary_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    # Stores the first day of the month for which this salary applies
+    month_year = models.DateField() 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # Ensures a user can only have one salary entry per month
+        unique_together = ('user', 'month_year')
+        ordering = ['-month_year', '-updated_at']
 
     def __str__(self):
-        return f"{self.user.username}'s Bank Account - Balance: {self.current_balance}"
+        return f"{self.user.username} - {self.month_year.strftime('%Y-%m')} - Salary: {self.salary_amount}"
 
-class BankTransaction(models.Model):
+class Expense(models.Model):
     """
-    Stores individual bank transactions (debit or credit).
-    Amount is always stored as a positive value.
+    Stores individual expense records for a user.
     """
-    class TransactionType(models.TextChoices):
-        DEBIT = 'DEBIT', 'Debit'      # Money leaving the account (e.g., an expense payment, withdrawal)
-        CREDIT = 'CREDIT', 'Credit'    # Money entering the account (e.g., a salary deposit, refund)
-
-    account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='transactions')
-    # Added user to transaction for easier direct queries by user if needed, though account also links to user.
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_transactions') 
-    transaction_type = models.CharField(max_length=6, choices=TransactionType.choices)
-    amount = models.DecimalField(max_digits=10, decimal_places=2) # Always positive
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='expenses')
+    # Optional link to a specific monthly salary record. 
+    # Useful if you want to tie expenses directly to a declared salary for a month.
+    # For simplicity in calculating running balances, we might primarily rely on the expense's date.
+    monthly_salary_ref = models.ForeignKey(MonthlySalary, on_delete=models.SET_NULL, null=True, blank=True, related_name='related_expenses')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.CharField(max_length=255)
-    # Stores the balance of the account *after* this transaction was processed.
-    balance_after_transaction = models.DecimalField(max_digits=12, decimal_places=2)
-    date_logged = models.DateTimeField(default=timezone.now)
+    date_logged = models.DateTimeField(default=timezone.now) # Changed from auto_now_add for more control if needed, but default to now.
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-date_logged', '-created_at']
+        ordering = ['-date_logged']
 
     def __str__(self):
-        return f"{self.transaction_type} - {self.amount} for {self.user.username} on {self.date_logged.strftime('%Y-%m-%d')}"
+        return f"{self.user.username} - {self.date_logged.strftime('%Y-%m-%d %H:%M')} - Amount: {self.amount} - {self.description}"
+

@@ -1,0 +1,42 @@
+{% load static i18n custom_filters %}
+<div x-data="{
+    currentSort: '{{ current_sort }}',
+    isSortedAsc(field) {
+        return this.currentSort === field;
+    },
+    isSortedDesc(field) {
+        return this.currentSort === '-' + field;
+    },
+    isSortedNone(field) {
+        return this.currentSort === field + '-';
+    },
+    getNextSort(field) {
+        if (this.currentSort === field) {
+            return '-' + field;  // First click: none → descending
+        } else if (this.currentSort === '-' + field) {
+            return field + '-';  // Second click: descending → ascending
+        } else {
+            return field;        // Third click or default: ascending → none
+        }
+    },
+    updateSortState(field) {
+        this.currentSort = this.getNextSort(field);
+    },
+    refreshSortState() {
+        let sortElement = document.getElementById('current-sort-data');
+        if (sortElement) {
+            this.currentSort = sortElement.dataset.currentSort;
+        }
+    }
+}"
+x-init="
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'hTB_{{ target }}') {
+            refreshSortState();
+        }
+    });
+"
+@htmx:configRequest.window="event.detail.headers['X-Current-Sort'] = currentSort"
+@currentSortChanged.window="currentSort = $event.detail.value">
+    {{ slot }}
+</div>
