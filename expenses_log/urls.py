@@ -22,4 +22,5 @@ urlpatterns = [
     path("__reload__", include("django_browser_reload.urls")),
     path('month-log/', include('month_log.urls')),
     path('sampletable/', include('sampletable.urls')),
+    path('bank-balance-log/', include('bank_balance_log.urls')),
 ]

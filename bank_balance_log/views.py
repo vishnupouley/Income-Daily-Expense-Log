@@ -1,21 +1,23 @@
 # bank_log/views.py
 from django.shortcuts import render
-from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseBadRequest
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST, require_GET
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.contrib.auth.decorators import login_required  # type: ignore
+from django.views.decorators.http import require_POST, require_GET, require_http_methods  # type: ignore
 from pydantic import ValidationError
 import json
-from datetime import date, datetime
+from datetime import datetime
+from django.utils import timezone
 
 from schema.bank_balance_log.bank_balance_log_schema import (
-    BankAccountCreateOrUpdate, BankTransactionCreateRequest, 
-    BankTransactionFilterInputSchema
+    BankAccountCreateOrUpdate, BankTransactionCreateRequest,
+    BankTransactionFilterInputSchema, BankTransactionSchema, BankLogContextData  # Updated schema
 )
-from .services import BankLogService
-from django.template.loader import render_to_string # For HTMX partials
+from bank_balance_log.services import BankLogService
+from typing import Optional
 
-# Helper to parse JSON body
-def _parse_json_body(request: HttpRequest):
+
+# --- Helper Functions ---
+def _parse_json_body(request: HttpRequest) -> Optional[dict]:
     if request.content_type == 'application/json':
         try:
             return json.loads(request.body)
@@ -23,142 +25,121 @@ def _parse_json_body(request: HttpRequest):
             return None
     return None
 
-@login_required
-@require_POST
-async def set_bank_balance_view(request: HttpRequest) -> HttpResponse:
-    """
-    Sets or updates the bank balance for the logged-in user.
-    Expects form data or JSON.
-    """
-    try:
-        if request.content_type == 'application/json':
-            data = _parse_json_body(request)
-            if data is None: return HttpResponseBadRequest("Invalid JSON data.")
-        else: # Form data
-            data = request.POST.dict()
-            # Pydantic will handle Decimal conversion for initial_balance
-        
-        balance_data = BankAccountCreateOrUpdate.model_validate(data)
-    except ValidationError as e:
-        return JsonResponse({'errors': e.errors()}, status=400) # Or HTML error partial
-    except Exception as e:
-        return HttpResponseBadRequest(f"Invalid input: {str(e)}")
 
-    account_schema = await BankLogService.set_or_update_bank_balance(request.user, balance_data)
-    
-    # For HTMX, render a partial for the balance display
-    # Simulating an HTMX response by re-fetching summary data
-    today = date.today()
-    filter_data = BankTransactionFilterInputSchema() # Default filters
-    log_data = await BankLogService.get_bank_log_view_data(request.user, filter_data)
-
-    html_response = render_to_string('bank_log/partials/bank_summary_partial.html', {
-        'log_data': log_data, 
-        'user': request.user,
-        'success_message': f"Bank balance updated to {account_schema.current_balance}."
-    })
-    return HttpResponse(html_response)
-
-
-@login_required
-@require_POST
-async def add_bank_transaction_view(request: HttpRequest) -> HttpResponse:
-    """
-    Adds a new bank transaction (debit/credit) for the logged-in user.
-    Expects form data or JSON.
-    """
-    try:
-        if request.content_type == 'application/json':
-            data = _parse_json_body(request)
-            if data is None: return HttpResponseBadRequest("Invalid JSON data.")
-        else: # Form data
-            data = request.POST.dict()
-            # Pydantic handles Decimal for amount and Literal for transaction_type
-            if 'date_logged' in data and data['date_logged']:
-                 try:
-                    data['date_logged'] = datetime.fromisoformat(data['date_logged'].replace('Z', '+00:00'))
-                 except ValueError:
-                    pass # Pydantic will try to parse
-
-        transaction_data = BankTransactionCreateRequest.model_validate(data)
-    except ValidationError as e:
-        return JsonResponse({'errors': e.errors()}, status=400) # Or HTML error partial
-    except Exception as e:
-        return HttpResponseBadRequest(f"Invalid input: {str(e)}")
-
-
-    try:
-        transaction_schema = await BankLogService.record_transaction(request.user, transaction_data)
-    except Exception as e: # Catch errors from service layer (e.g., DB issues)
-        # Log the error e
-        return JsonResponse({'error': f"Failed to record transaction: {str(e)}"}, status=500)
-
-
-    # For HTMX, trigger refresh of the transaction list and balance
-    # Defaulting to a standard view after adding a transaction.
-    filter_params = {
-        'filter_month_year': request.GET.get('filter_month_year'),
-        'filter_date': request.GET.get('filter_date'),
-        'page': request.GET.get('page', '1'),
-        'page_size': request.GET.get('page_size', '10'),
-        'sort_by': request.GET.get('sort_by'),
-        'transaction_type': request.GET.get('transaction_type')
+def _get_bank_filter_params_from_request(request_get_dict: dict) -> BankTransactionFilterInputSchema:
+    today = timezone.now().date()
+    filter_data = {
+        'filter_month_year': request_get_dict.get('filter_month_year', today.strftime('%Y-%m')),
+        'filter_date': request_get_dict.get('filter_date'),
+        'page': int(request_get_dict.get('page', '1')),
+        'page_size': int(request_get_dict.get('page_size', '10')),
+        'sort_by': request_get_dict.get('sort_by'),
+        'transaction_type': request_get_dict.get('transaction_type')
     }
-    if filter_params['filter_date']:
-        filter_params.pop('filter_month_year', None)
+    if filter_data.get('filter_date'):
         try:
-            filter_params['filter_date'] = datetime.strptime(filter_params['filter_date'], '%Y-%m-%d').date()
+            if isinstance(filter_data['filter_date'], str):
+                filter_data['filter_date'] = datetime.strptime(
+                    filter_data['filter_date'], '%Y-%m-%d').date()
+            if filter_data['filter_date']:
+                filter_data['filter_month_year'] = None
         except (ValueError, TypeError):
-            filter_params['filter_date'] = None
-    
+            filter_data['filter_date'] = None
+            filter_data['filter_month_year'] = today.strftime('%Y-%m')
     try:
-        filters = BankTransactionFilterInputSchema.model_validate(filter_params)
-    except ValidationError: # Default if params are bad
-        filters = BankTransactionFilterInputSchema()
+        return BankTransactionFilterInputSchema.model_validate(filter_data)
+    except ValidationError:
+        return BankTransactionFilterInputSchema(filter_month_year=today.strftime('%Y-%m'), page=1, page_size=10)
 
-
-    log_data = await BankLogService.get_bank_log_view_data(request.user, filters)
-    
-    html_response = render_to_string('bank_log/partials/transaction_list_and_summary_partial.html', {
-        'log_data': log_data, 
-        'user': request.user,
-        'success_message': f"{transaction_schema.transaction_type.capitalize()} of {transaction_schema.amount} for '{transaction_schema.description}' recorded."
-    })
-    return HttpResponse(html_response)
+# --- Main View & Balance Setting ---
 
 
 @login_required
 @require_GET
 async def bank_log_main_view(request: HttpRequest) -> HttpResponse:
-    """
-    Displays the main bank log page, including transactions, balance, and filters.
-    Handles filtering based on GET parameters.
-    """
-    try:
-        raw_filter_params = request.GET.dict()
-        if 'filter_date' in raw_filter_params and raw_filter_params['filter_date']:
-            try:
-                raw_filter_params['filter_date'] = datetime.strptime(raw_filter_params['filter_date'], '%Y-%m-%d').date()
-            except ValueError:
-                raw_filter_params.pop('filter_date', None)
-        
-        filters = BankTransactionFilterInputSchema.model_validate(raw_filter_params)
-    except ValidationError as e:
-        filters = BankTransactionFilterInputSchema() # Default filters
-        # context_errors = e.errors()
+    filters = _get_bank_filter_params_from_request(request.GET.dict())
+    # Call the refactored service method
+    context_data: BankLogContextData = await BankLogService.get_transactions_context_data(request.user, filters)
 
-    log_data = await BankLogService.get_bank_log_view_data(request.user, filters)
-    
     context = {
-        'log_data': log_data,
-        'current_filters': filters.model_dump(),
+        'log_data': context_data,  # Contains pagination and all other data
         'user': request.user,
-        # 'validation_errors': context_errors if 'context_errors' in locals() else None
     }
+    template_name = 'cotton/components/table/index.html' if request.htmx else 'bank_balance_log/index.html'
+    # Example for targeting only table body
+    if request.htmx and request.GET.get("target_body"):
+        template_name = 'cotton/components/table/table_body.html'
 
-    if request.htmx:
-        # If HTMX request (e.g., filtering), return only the partial
-        return render(request, 'bank_log/partials/transaction_list_and_summary_partial.html', context)
-    
-    # Full page load
-    return render(request, 'bank_log/bank_log_page.html', context)
+    return render(request, template_name, context)
+
+
+@login_required
+@require_POST
+async def set_bank_balance_view(request: HttpRequest) -> HttpResponse:
+    try:
+        raw_data = _parse_json_body(
+            request) if request.content_type == 'application/json' else request.POST.dict()
+        if raw_data is None:
+            return JsonResponse({'errors': "Invalid data format."}, status=400)
+        balance_data = BankAccountCreateOrUpdate.model_validate(raw_data)
+    except ValidationError as e:
+        return JsonResponse({'errors': e.errors(include_input=False)}, status=400)
+    except Exception as e:
+        return JsonResponse({'errors': f"Invalid input: {str(e)}"}, status=400)
+
+    await BankLogService.set_or_update_bank_balance(request.user, balance_data)
+
+    filters = _get_bank_filter_params_from_request(request.GET.dict())
+    context_data = await BankLogService.get_transactions_context_data(request.user, filters)
+    context = {
+        'log_data': context_data, 'user': request.user,
+        'balance_update_success_message': "Bank balance updated successfully."
+    }
+    return render(request, 'cotton/components/table/table.html', context)
+
+
+# --- HTMX Inline Bank Transaction Row Views ---
+@login_required
+@require_GET
+async def add_bank_transaction_form_row_view(request: HttpRequest) -> HttpResponse:
+    return render(request, 'bank_balance_log/partials/add_row.html', {})
+
+
+@login_required
+@require_POST
+async def save_new_bank_transaction_view(request: HttpRequest) -> HttpResponse:
+    try:
+        raw_data = _parse_json_body(
+            request) if request.content_type == 'application/json' else request.POST.dict()
+        if raw_data is None:
+            return JsonResponse({'errors': "Invalid data format."}, status=400)
+        if 'date_logged' in raw_data and isinstance(raw_data.get('date_logged'), str) and raw_data.get('date_logged'):
+            try:
+                raw_data['date_logged'] = datetime.fromisoformat(
+                    raw_data['date_logged'].replace('Z', '+00:00'))
+            except ValueError:
+                pass
+        else:
+            raw_data.pop('date_logged', None)
+        transaction_data_create = BankTransactionCreateRequest.model_validate(
+            raw_data)
+    except ValidationError as e:
+        return JsonResponse({'errors': e.errors(include_input=False)}, status=400)
+    except Exception as e:
+        return JsonResponse({'errors': f"Invalid input: {str(e)}"}, status=400)
+
+    try:
+        new_transaction_obj = await BankLogService.record_transaction(request.user, transaction_data_create)
+    except Exception as service_e:
+        return JsonResponse({'errors': f"Failed to record transaction: {str(service_e)}"}, status=500)
+
+    transaction_schema = BankTransactionSchema.model_validate(
+        new_transaction_obj)
+    context = {'row': transaction_schema, 'user': request.user}
+    return render(request, 'bank_balance_log/partials/row.html', context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+async def cancel_add_bank_transaction_row_view(request: HttpRequest) -> HttpResponse:
+    return HttpResponse(status=200)

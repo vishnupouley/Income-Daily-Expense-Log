@@ -53,6 +53,7 @@ LOCAL_APPS = [
     'theme',
     'month_log',
     'sampletable',
+    'bank_balance_log',
 ]
 
 # Combine All Apps

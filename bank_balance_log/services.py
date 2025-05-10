@@ -1,20 +1,21 @@
 # bank_log/services.py
-from decimal import Decimal
-from datetime import date, datetime, timedelta
-from typing import List, Tuple, Optional
-from django.contrib.auth import get_user_model
-from django.db import transaction, F
-from django.db.models import Count
-from django.db.models.functions import TruncDate
-from asgiref.sync import sync_to_async
+from datetime import date 
+from typing import List, Optional
+from django.contrib.auth import get_user_model # type: ignore
+from django.db import transaction 
+from django.db.models.functions import TruncDate # type: ignore
+from asgiref.sync import sync_to_async # type: ignore
 from django.utils import timezone
+import math # For math.ceil
 
 from .models import BankAccount, BankTransaction
 from schema.bank_balance_log.bank_balance_log_schema import (
     BankAccountCreateOrUpdate, BankAccountSchema,
     BankTransactionCreateRequest, BankTransactionSchema,
-    BankDateFilterSchema, BankTransactionFilterInputSchema, BankLogViewData
+    BankDateFilterSchema, BankTransactionFilterInputSchema, 
+    BankLogContextData, PaginationDetails # Updated Schemas
 )
+from schema.list_schema import PaginationDetails
 
 User = get_user_model()
 
@@ -22,11 +23,15 @@ class BankLogService:
 
     @staticmethod
     @sync_to_async
+    def get_bank_transaction_by_id(user: User, transaction_id: int) -> Optional[BankTransaction]:
+        try:
+            return BankTransaction.objects.get(pk=transaction_id, user=user)
+        except BankTransaction.DoesNotExist:
+            return None
+
+    @staticmethod
+    @sync_to_async
     def set_or_update_bank_balance(user: User, balance_data: BankAccountCreateOrUpdate) -> BankAccountSchema:
-        """
-        Sets or updates the bank balance for the user.
-        If the account doesn't exist, it's created.
-        """
         account, created = BankAccount.objects.update_or_create(
             user=user,
             defaults={'current_balance': balance_data.initial_balance, 'last_updated': timezone.now()}
@@ -36,9 +41,6 @@ class BankLogService:
     @staticmethod
     @sync_to_async
     def get_bank_account_details(user: User) -> Optional[BankAccountSchema]:
-        """
-        Retrieves the bank account details for the user.
-        """
         try:
             account = BankAccount.objects.get(user=user)
             return BankAccountSchema.model_validate(account)
@@ -46,127 +48,111 @@ class BankLogService:
             return None
 
     @staticmethod
-    async def record_transaction(user: User, transaction_data: BankTransactionCreateRequest) -> BankTransactionSchema:
-        """
-        Records a new bank transaction (debit or credit) and updates the account balance.
-        This method is designed to be atomic.
-        """
-        # This function needs to be atomic to prevent race conditions on balance update.
-        # We'll use sync_to_async to wrap the database operations within a transaction.
-        
+    async def record_transaction(user: User, transaction_data: BankTransactionCreateRequest) -> BankTransaction:
         @sync_to_async
-        def _atomic_transaction_operation():
+        def _atomic_transaction_operation() -> BankTransaction:
             with transaction.atomic():
                 account, created = BankAccount.objects.get_or_create(user=user)
-
                 new_balance = account.current_balance
                 if transaction_data.transaction_type == BankTransaction.TransactionType.DEBIT:
                     new_balance -= transaction_data.amount
-                elif transaction_data.transaction_type == BankTransaction.TransactionType.CREDIT:
-                    new_balance += transaction_data.amount
-                
-                # Update account balance using F() expression for safety, though direct assignment within transaction is also safe.
-                # BankAccount.objects.filter(pk=account.pk).update(current_balance=new_balance, last_updated=timezone.now())
-                # account.refresh_from_db() # To get the updated values if using .update()
-
+                else: new_balance += transaction_data.amount
                 account.current_balance = new_balance
                 account.last_updated = timezone.now()
-                account.save()
-
-
-                transaction_date_logged = transaction_data.date_logged or timezone.now()
-                
+                account.save() 
                 bank_tx = BankTransaction.objects.create(
-                    user=user,
-                    account=account,
+                    user=user, account=account,
                     transaction_type=transaction_data.transaction_type,
-                    amount=transaction_data.amount,
+                    amount=transaction_data.amount, 
                     description=transaction_data.description,
-                    balance_after_transaction=account.current_balance, # The balance *after* this tx
-                    date_logged=transaction_date_logged
+                    balance_after_transaction=account.current_balance, 
+                    date_logged=transaction_data.date_logged or timezone.now()
                 )
-                return BankTransactionSchema.model_validate(bank_tx)
-
+                return bank_tx
         return await _atomic_transaction_operation()
-
 
     @staticmethod
     @sync_to_async
-    def get_bank_log_view_data(user: User, filters: BankTransactionFilterInputSchema) -> BankLogViewData:
-        """
-        Retrieves bank transactions based on filters and current account balance.
-        """
-        account_details = None
+    def get_transactions_context_data(user: User, params: BankTransactionFilterInputSchema) -> BankLogContextData:
+        account_details_schema: Optional[BankAccountSchema] = None
         try:
             account = BankAccount.objects.get(user=user)
-            account_details = BankAccountSchema.model_validate(account)
+            account_details_schema = BankAccountSchema.model_validate(account)
         except BankAccount.DoesNotExist:
-            # If no account, no transactions or balance to show, but we can still return empty structure
-            pass
+            pass 
 
-        # Base queryset for transactions
+        # Base queryset
         transaction_queryset = BankTransaction.objects.filter(user=user)
 
-        # Apply date filtering
-        if filters.filter_date:
-            transaction_queryset = transaction_queryset.filter(date_logged__date=filters.filter_date)
-        elif filters.filter_month_year:
-            year, month = map(int, filters.filter_month_year.split('-'))
+        # Apply filters
+        if params.filter_date:
+            transaction_queryset = transaction_queryset.filter(date_logged__date=params.filter_date)
+        elif params.filter_month_year:
+            year, month = map(int, params.filter_month_year.split('-'))
             transaction_queryset = transaction_queryset.filter(date_logged__year=year, date_logged__month=month)
         
-        # Apply transaction type filtering
-        if filters.transaction_type:
-            transaction_queryset = transaction_queryset.filter(transaction_type=filters.transaction_type)
+        if params.transaction_type:
+            transaction_queryset = transaction_queryset.filter(transaction_type=params.transaction_type)
 
         # Apply sorting
-        if filters.sort_by:
-            transaction_queryset = transaction_queryset.order_by(filters.sort_by)
+        if params.sort_by:
+            transaction_queryset = transaction_queryset.order_by(params.sort_by)
         else:
-            transaction_queryset = transaction_queryset.order_by('-date_logged', '-created_at') # Default sort
+            transaction_queryset = transaction_queryset.order_by('-date_logged', '-created_at') 
 
-        # Get total count for pagination before slicing
-        total_transaction_count = transaction_queryset.count()
+        # Pagination
+        total_items = transaction_queryset.count()
+        total_pages = math.ceil(total_items / params.page_size) if params.page_size > 0 else 0
+        if total_pages == 0 and total_items > 0: total_pages = 1
 
-        # Apply pagination
-        start_index = (filters.page - 1) * filters.page_size
-        end_index = start_index + filters.page_size
-        paginated_transactions_qs = transaction_queryset[start_index:end_index]
+        current_page = params.page
+        if current_page > total_pages and total_pages > 0 : current_page = total_pages
+        if current_page < 1: current_page = 1
 
-        processed_transactions = [BankTransactionSchema.model_validate(tx) for tx in paginated_transactions_qs]
+        start_item_index = (current_page - 1) * params.page_size
+        end_item_index = start_item_index + params.page_size
+        paginated_transactions_qs = transaction_queryset[start_item_index:end_item_index]
+
+        processed_transaction_schemas = [BankTransactionSchema.model_validate(tx) for tx in paginated_transactions_qs]
         
-        total_pages = (total_transaction_count + filters.page_size - 1) // filters.page_size if filters.page_size > 0 else 1
-        if total_pages == 0 and total_transaction_count > 0 : total_pages = 1
-
-
-        return BankLogViewData(
-            bank_account=account_details,
-            transactions=processed_transactions,
-            total_transaction_count=total_transaction_count,
-            date_filters=BankLogService._get_last_n_unique_transaction_dates(user, 10), # Call static method
-            current_page=filters.page,
+        pagination_details = PaginationDetails(
+            current_page=current_page,
+            page_size=params.page_size,
+            total_items=total_items,
             total_pages=total_pages,
-            page_size=filters.page_size
+            has_next_page=current_page < total_pages,
+            has_previous_page=current_page > 1,
+            next_page_number=current_page + 1 if current_page < total_pages else None,
+            previous_page_number=current_page - 1 if current_page > 1 else None,
+            start_item_index=start_item_index if total_items > 0 else None,
+            end_item_index=end_item_index -1 if total_items > 0 else None,
+            display_start_item=start_item_index + 1 if total_items > 0 else 0,
+            display_end_item=min(end_item_index, total_items) if total_items > 0 else 0,
+            page_range=[5, 10, 15, 20, 25]
+        )
+
+        return BankLogContextData(
+            bank_account=account_details_schema,
+            transactions=processed_transaction_schemas,
+            date_filters=BankLogService._get_last_n_unique_transaction_dates_sync(user, 10),
+            pagination=pagination_details,
+            current_filters_applied=params
         )
 
     @staticmethod
-    # This is a synchronous helper method
-    def _get_last_n_unique_transaction_dates(user: User, count: int) -> List[BankDateFilterSchema]:
-        """
-        Retrieves the last N unique dates on which bank transactions were logged.
-        """
+    def _get_last_n_unique_transaction_dates_sync(user: User, count: int) -> List[BankDateFilterSchema]:
+        # ... (no changes to this helper method)
         unique_dates_qs = BankTransaction.objects.filter(user=user)\
             .annotate(transaction_date=TruncDate('date_logged'))\
             .values('transaction_date')\
             .distinct()\
             .order_by('-transaction_date')[:count]
-
         date_filters = []
         for idx, item in enumerate(unique_dates_qs):
             log_date = item['transaction_date']
             if log_date:
                 date_filters.append(BankDateFilterSchema(
-                    id=idx + 1,
-                    date_value=log_date.strftime('%Y-%m-%d'),
+                    id=idx + 1, date_value=log_date.strftime('%Y-%m-%d'),
                     display_text=log_date.strftime('%b %d, %Y')
                 ))
         return date_filters

@@ -11,3 +11,4 @@ db.sqlite3
 .pytest_cache
 .venv
 .qodo
+theme/static/css/dist/
