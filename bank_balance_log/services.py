@@ -23,26 +23,25 @@ class BankLogService:
 
     @staticmethod
     @sync_to_async
-    def get_bank_transaction_by_id(user: User, transaction_id: int) -> Optional[BankTransaction]:
+    def get_bank_transaction_by_id(transaction_id: int) -> Optional[BankTransaction]:
         try:
-            return BankTransaction.objects.get(pk=transaction_id, user=user)
+            return BankTransaction.objects.get(pk=transaction_id)
         except BankTransaction.DoesNotExist:
             return None
 
     @staticmethod
     @sync_to_async
-    def set_or_update_bank_balance(user: User, balance_data: BankAccountCreateOrUpdate) -> BankAccountSchema:
+    def set_or_update_bank_balance(balance_data: BankAccountCreateOrUpdate) -> BankAccountSchema:
         account, created = BankAccount.objects.update_or_create(
-            user=user,
             defaults={'current_balance': balance_data.initial_balance, 'last_updated': timezone.now()}
         )
         return BankAccountSchema.model_validate(account)
 
     @staticmethod
     @sync_to_async
-    def get_bank_account_details(user: User) -> Optional[BankAccountSchema]:
+    def get_bank_account_details() -> Optional[BankAccountSchema]:
         try:
-            account = BankAccount.objects.get(user=user)
+            account = BankAccount.objects.get()
             return BankAccountSchema.model_validate(account)
         except BankAccount.DoesNotExist:
             return None
@@ -73,16 +72,16 @@ class BankLogService:
 
     @staticmethod
     @sync_to_async
-    def get_transactions_context_data(user: User, params: BankTransactionFilterInputSchema) -> BankLogContextData:
+    def get_transactions_context_data(params: BankTransactionFilterInputSchema) -> BankLogContextData:
         account_details_schema: Optional[BankAccountSchema] = None
         try:
-            account = BankAccount.objects.get(user=user)
+            account = BankAccount.objects.get()
             account_details_schema = BankAccountSchema.model_validate(account)
         except BankAccount.DoesNotExist:
             pass 
 
         # Base queryset
-        transaction_queryset = BankTransaction.objects.filter(user=user)
+        transaction_queryset = BankTransaction.objects.all()
 
         # Apply filters
         if params.filter_date:
@@ -134,15 +133,15 @@ class BankLogService:
         return BankLogContextData(
             bank_account=account_details_schema,
             transactions=processed_transaction_schemas,
-            date_filters=BankLogService._get_last_n_unique_transaction_dates_sync(user, 10),
+            date_filters=BankLogService._get_last_n_unique_transaction_dates_sync(10),
             pagination=pagination_details,
             current_filters_applied=params
         )
 
     @staticmethod
-    def _get_last_n_unique_transaction_dates_sync(user: User, count: int) -> List[BankDateFilterSchema]:
+    def _get_last_n_unique_transaction_dates_sync(count: int) -> List[BankDateFilterSchema]:
         # ... (no changes to this helper method)
-        unique_dates_qs = BankTransaction.objects.filter(user=user)\
+        unique_dates_qs = BankTransaction.objects.all()\
             .annotate(transaction_date=TruncDate('date_logged'))\
             .values('transaction_date')\
             .distinct()\
