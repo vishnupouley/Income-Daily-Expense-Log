@@ -1,13 +1,12 @@
 # bank_log/views.py
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.contrib.auth.decorators import login_required  # type: ignore
 from django.views.decorators.http import require_POST, require_GET, require_http_methods  # type: ignore
 from pydantic import ValidationError
 import json
 from datetime import datetime
 from django.utils import timezone
-
+from django.urls import reverse
 from schema.bank_balance_log.bank_balance_log_schema import (
     BankAccountCreateOrUpdate, BankTransactionCreateRequest,
     BankTransactionFilterInputSchema, BankTransactionSchema, BankLogContextData  # Updated schema
@@ -54,26 +53,35 @@ def _get_bank_filter_params_from_request(request_get_dict: dict) -> BankTransact
 # --- Main View & Balance Setting ---
 
 
-@login_required
+
 @require_GET
 async def bank_log_main_view(request: HttpRequest) -> HttpResponse:
     filters = _get_bank_filter_params_from_request(request.GET.dict())
     # Call the refactored service method
-    context_data: BankLogContextData = await BankLogService.get_transactions_context_data(request.user, filters)
+    context_data: BankLogContextData = await BankLogService.get_transactions_context_data(filters)
 
     context = {
-        'log_data': context_data,  # Contains pagination and all other data
-        'user': request.user,
+        'data': context_data,  # Contains pagination and all other data
+        'add_button': {
+            'name': 'Add Transaction', 
+            'url': reverse('bank_balance_log:add_transaction_form_row'),
+            "target": "tbody#Htb_Htable",
+            'swap': "afterend"
+        },
+        'target': "Htable",
+        'list_url': reverse('bank_balance_log:bank_log_main_view'),
     }
     template_name = 'cotton/components/table/index.html' if request.htmx else 'bank_balance_log/index.html'
     # Example for targeting only table body
-    if request.htmx and request.GET.get("target_body"):
+    if request.htmx and request.headers.get("HX-Target") == "Htb_Htable":
         template_name = 'cotton/components/table/table_body.html'
 
-    return render(request, template_name, context)
+    response = render(request, template_name, context)
+    response.headers['HX-Trigger'] = f'{{"currentSortChanged": "{context_data.sort_by}"}}'
+    return response
 
 
-@login_required
+
 @require_POST
 async def set_bank_balance_view(request: HttpRequest) -> HttpResponse:
     try:
@@ -87,25 +95,25 @@ async def set_bank_balance_view(request: HttpRequest) -> HttpResponse:
     except Exception as e:
         return JsonResponse({'errors': f"Invalid input: {str(e)}"}, status=400)
 
-    await BankLogService.set_or_update_bank_balance(request.user, balance_data)
+    await BankLogService.set_or_update_bank_balance(balance_data)
 
     filters = _get_bank_filter_params_from_request(request.GET.dict())
-    context_data = await BankLogService.get_transactions_context_data(request.user, filters)
+    context_data = await BankLogService.get_transactions_context_data(filters)
     context = {
-        'log_data': context_data, 'user': request.user,
+        'log_data': context_data,
         'balance_update_success_message': "Bank balance updated successfully."
     }
     return render(request, 'cotton/components/table/table.html', context)
 
 
 # --- HTMX Inline Bank Transaction Row Views ---
-@login_required
+
 @require_GET
 async def add_bank_transaction_form_row_view(request: HttpRequest) -> HttpResponse:
     return render(request, 'bank_balance_log/partials/add_row.html', {})
 
 
-@login_required
+
 @require_POST
 async def save_new_bank_transaction_view(request: HttpRequest) -> HttpResponse:
     try:
@@ -129,17 +137,17 @@ async def save_new_bank_transaction_view(request: HttpRequest) -> HttpResponse:
         return JsonResponse({'errors': f"Invalid input: {str(e)}"}, status=400)
 
     try:
-        new_transaction_obj = await BankLogService.record_transaction(request.user, transaction_data_create)
+        new_transaction_obj = await BankLogService.record_transaction(transaction_data_create)
     except Exception as service_e:
         return JsonResponse({'errors': f"Failed to record transaction: {str(service_e)}"}, status=500)
 
     transaction_schema = BankTransactionSchema.model_validate(
         new_transaction_obj)
-    context = {'row': transaction_schema, 'user': request.user}
+    context = {'row': transaction_schema}
     return render(request, 'bank_balance_log/partials/row.html', context)
 
 
-@login_required
+
 @require_http_methods(["GET", "POST"])
 async def cancel_add_bank_transaction_row_view(request: HttpRequest) -> HttpResponse:
     return HttpResponse(status=200)

@@ -1,5 +1,25 @@
+{% load static custom_filters %}
 <c-base title="Monthly log">
-    <div class="container mx-auto">
-        <h1 class="text-2xl font-bold text-center">Monthly log</h1>
+    <div class="flex-1 max-h-screen bg-tertiary">
+        <div>
+            <main class="flex-2 bg-tertiary">
+                <div class="px-6 py-2 bg-tertiary">
+                    <div class="grid flex-1 grid-cols-12 h-fit grid-rows-12">
+                        <div 
+                            hx-get="{% url 'monthly_log:monthly_log_main' %}"
+                            hx-trigger="htmx:refreshTable"
+                            class="col-span-full col-start-1 row-span-full row-start-1"
+                            id="{{ target }}">
+                            <c-components.table
+                                :data="data" 
+                                :columns="columns" 
+                                :current_sort="current_sort"
+                                :pagination="pagination" >
+                            </c-components.table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
 </c-base>

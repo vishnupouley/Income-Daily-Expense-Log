@@ -8,7 +8,6 @@ class MonthlySalary(models.Model):
     """
     Stores the user's declared monthly salary for a specific month.
     """
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='monthly_salaries')
     salary_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     # Stores the first day of the month for which this salary applies
     month_year = models.DateField() 
@@ -17,17 +16,16 @@ class MonthlySalary(models.Model):
 
     class Meta:
         # Ensures a user can only have one salary entry per month
-        unique_together = ('user', 'month_year')
+        unique_together = ('month_year',)
         ordering = ['-month_year', '-updated_at']
 
     def __str__(self):
-        return f"{self.user.username} - {self.month_year.strftime('%Y-%m')} - Salary: {self.salary_amount}"
+        return f"{self.month_year.strftime('%Y-%m')} - Salary: {self.salary_amount}"
 
 class Expense(models.Model):
     """
     Stores individual expense records for a user.
     """
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='expenses')
     # Optional link to a specific monthly salary record. 
     # Useful if you want to tie expenses directly to a declared salary for a month.
     # For simplicity in calculating running balances, we might primarily rely on the expense's date.
@@ -43,5 +41,5 @@ class Expense(models.Model):
         ordering = ['-date_logged']
 
     def __str__(self):
-        return f"{self.user.username} - {self.date_logged.strftime('%Y-%m-%d %H:%M')} - Amount: {self.amount} - {self.description}"
+        return f"{self.date_logged.strftime('%Y-%m-%d %H:%M')} - Amount: {self.amount} - {self.description}"
 

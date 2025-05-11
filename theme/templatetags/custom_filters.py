@@ -13,3 +13,8 @@ def tojson(dict: dict) -> json:
 def get_item(dictionary: dict, key: str):
     """ Get item from dictionary by key """
     return dictionary.get(key)
+
+@register.filter(name='get_title')
+def get_title(title: str):
+    """ Convert snake_case to Title Case """
+    return title.replace("_", " ").title()

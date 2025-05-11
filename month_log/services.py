@@ -2,10 +2,10 @@
 from decimal import Decimal
 from datetime import date
 from typing import List, Tuple, Optional
-from django.contrib.auth import get_user_model  # type: ignore
-from django.db.models import Sum  # type: ignore
-from django.db.models.functions import TruncDate  # type: ignore
-from asgiref.sync import sync_to_async  # type: ignore
+from django.contrib.auth import get_user_model
+from django.db.models import Sum
+from django.db.models.functions import TruncDate
+from asgiref.sync import sync_to_async
 from django.utils import timezone
 import math  # For math.ceil
 
@@ -26,19 +26,18 @@ class MonthlyIncomeService:
 
     @staticmethod
     @sync_to_async
-    def get_expense_by_id(user: User, expense_id: int) -> Optional[Expense]:
+    def get_expense_by_id(expense_id: int) -> Optional[Expense]:
         try:
-            return Expense.objects.get(pk=expense_id, user=user)
+            return Expense.objects.get(pk=expense_id)
         except Expense.DoesNotExist:
             return None
 
     @staticmethod
     @sync_to_async
-    def set_or_update_monthly_salary(user: User, salary_data: MonthlySalaryCreate) -> MonthlySalarySchema:
+    def set_or_update_monthly_salary(salary_data: MonthlySalaryCreate) -> MonthlySalarySchema:
         target_month_year = date(
             salary_data.month_year.year, salary_data.month_year.month, 1)
         salary_obj, created = MonthlySalary.objects.update_or_create(
-            user=user,
             month_year=target_month_year,
             defaults={'salary_amount': salary_data.salary_amount}
         )
@@ -46,24 +45,24 @@ class MonthlyIncomeService:
 
     @staticmethod
     @sync_to_async
-    def get_monthly_salary(user: User, target_date: date) -> Optional[MonthlySalarySchema]:
+    def get_monthly_salary(target_date: date) -> Optional[MonthlySalarySchema]:
         month_start = date(target_date.year, target_date.month, 1)
         try:
             salary_obj = MonthlySalary.objects.get(
-                user=user, month_year=month_start)
+                month_year=month_start)
             return MonthlySalarySchema.model_validate(salary_obj)
         except MonthlySalary.DoesNotExist:
             return None
 
     @staticmethod
-    async def add_expense(user: User, expense_data: ExpenseCreate) -> Tuple[Optional[Expense], Optional[str]]:
+    async def add_expense(expense_data: ExpenseCreate) -> Tuple[Optional[Expense], Optional[str]]:
         expense_date_logged = expense_data.date_logged or timezone.now()
         new_expense_obj = None
         try:
             @sync_to_async
             def _create_expense_atomically():
                 return Expense.objects.create(
-                    user=user, amount=expense_data.amount,
+                    amount=expense_data.amount,
                     description=expense_data.description, date_logged=expense_date_logged
                 )
             new_expense_obj = await _create_expense_atomically()
@@ -72,7 +71,7 @@ class MonthlyIncomeService:
                 description=f"Monthly Expense: {new_expense_obj.description}",
                 date_logged=new_expense_obj.date_logged
             )
-            await BankLogService.record_transaction(user=user, transaction_data=bank_transaction_data)
+            await BankLogService.record_transaction(transaction_data=bank_transaction_data)
             return new_expense_obj, None
         except Exception as e:
             if new_expense_obj and new_expense_obj.pk:
@@ -81,9 +80,9 @@ class MonthlyIncomeService:
             return None, f"Failed to add expense or log bank transaction: {str(e)}"
 
     @staticmethod
-    async def update_expense(user: User, expense_id: int, expense_data: ExpenseUpdate) -> Tuple[Optional[Expense], Optional[str]]:
+    async def update_expense(expense_id: int, expense_data: ExpenseUpdate) -> Tuple[Optional[Expense], Optional[str]]:
         try:
-            expense_obj = await sync_to_async(Expense.objects.get)(user=user, pk=expense_id)
+            expense_obj = await sync_to_async(Expense.objects.get)(pk=expense_id)
             updated_fields = expense_data.model_dump(exclude_unset=True)
             if not updated_fields:
                 return expense_obj, "No update data provided."
@@ -104,9 +103,9 @@ class MonthlyIncomeService:
             return None, f"Error updating expense: {str(e)}"
 
     @staticmethod
-    async def delete_expense(user: User, expense_id: int) -> Tuple[bool, Optional[str]]:
+    async def delete_expense(expense_id: int) -> Tuple[bool, Optional[str]]:
         try:
-            expense_obj = await sync_to_async(Expense.objects.get)(user=user, pk=expense_id)
+            expense_obj = await sync_to_async(Expense.objects.get)(pk=expense_id)
             comp_amount, comp_desc = expense_obj.amount, expense_obj.description
             await sync_to_async(expense_obj.delete)()
             bank_tx_data = BankTransactionCreateRequest(
@@ -114,7 +113,7 @@ class MonthlyIncomeService:
                 description=f"Reversal for deleted expense: {comp_desc}", date_logged=timezone.now()
             )
             try:
-                await BankLogService.record_transaction(user=user, transaction_data=bank_tx_data)
+                await BankLogService.record_transaction(transaction_data=bank_tx_data)
                 return True, "Expense deleted and bank credit logged."
             except Exception as bank_e:
                 return True, f"Expense deleted, but failed to log bank credit: {str(bank_e)}."
@@ -125,7 +124,7 @@ class MonthlyIncomeService:
 
     @staticmethod
     @sync_to_async
-    def get_expenses_context_data(user: User, params: ExpenseFilterInputSchema) -> MonthlyLogContextData:
+    def get_expenses_context_data(params: ExpenseFilterInputSchema) -> MonthlyLogContextData:
         today = timezone.now().date()
 
         # Determine target month for salary and overall period summary
@@ -143,7 +142,7 @@ class MonthlyIncomeService:
         salary_amount_for_month = Decimal('0.00')
         try:
             salary_obj = MonthlySalary.objects.get(
-                user=user, month_year=target_month_for_salary)
+                month_year=target_month_for_salary)
             current_salary_schema = MonthlySalarySchema.model_validate(
                 salary_obj)
             salary_amount_for_month = salary_obj.salary_amount
@@ -151,7 +150,7 @@ class MonthlyIncomeService:
             pass
 
         # Base queryset
-        expense_queryset = Expense.objects.filter(user=user)
+        expense_queryset = Expense.objects.all()
 
         # Apply date filtering for the list of expenses
         if params.filter_date:
@@ -190,7 +189,7 @@ class MonthlyIncomeService:
 
         # Calculate summary for the *entire* filtered period (month or day) for display
         # This queryset is for the summary figures like "total spent"
-        summary_period_queryset = Expense.objects.filter(user=user)
+        summary_period_queryset = Expense.objects.all()
         if params.filter_date:  # Summary for specific day
             summary_period_queryset = summary_period_queryset.filter(
                 date_logged__date=params.filter_date)
@@ -218,7 +217,6 @@ class MonthlyIncomeService:
 
         # Fetch all expenses for the month of the target_period_date for balance calculation
         all_expenses_for_balance_month_qs = Expense.objects.filter(
-            user=user,
             date_logged__year=target_month_for_salary.year,  # Use salary month as reference
             date_logged__month=target_month_for_salary.month
         ).order_by('date_logged', 'created_at')
@@ -265,7 +263,7 @@ class MonthlyIncomeService:
             saved_amount_for_period=saved_amount_for_period,
             expenses=processed_expenses_schemas,
             date_filters=MonthlyIncomeService._get_last_n_unique_expense_dates_sync(
-                user, 10),
+                10),
             pagination=pagination_details,
             current_filters_applied=params
         )
@@ -289,9 +287,9 @@ class MonthlyIncomeService:
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
     @staticmethod
-    def _get_last_n_unique_expense_dates_sync(user: User, count: int) -> List[DateFilterSchema]:
+    def _get_last_n_unique_expense_dates_sync(count: int) -> List[DateFilterSchema]:
         # ... (no changes to this helper method)
-        unique_dates_qs = Expense.objects.filter(user=user)\
+        unique_dates_qs = Expense.objects.all()\
             .annotate(expense_date=TruncDate('date_logged'))\
             .values('expense_date')\
             .distinct()\
