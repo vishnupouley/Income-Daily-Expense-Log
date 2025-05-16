@@ -45,8 +45,8 @@ module.exports = {
         extend: {
             colors: {
                 primary: '#0000FF',
-                secondary: '#59FDFD',
-                tertiary: '#D6FFFF',
+                secondary: '#EFFFFF',
+                tertiary: '#59FDFD',
                 btn: {
                     danger: '#AD0000',
                     success: '#00BDEC',

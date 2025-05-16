@@ -27,14 +27,27 @@ def _parse_json_body(request: HttpRequest) -> Optional[dict]:
 
 def _get_bank_filter_params_from_request(request_get_dict: dict) -> BankTransactionFilterInputSchema:
     today = timezone.now().date()
+    
+    # Safely handle integer conversions with defaults
+    try:
+        page = int(request_get_dict.get('page', '1')) if request_get_dict.get('page', '1') else 1
+    except (ValueError, TypeError):
+        page = 1
+        
+    try:
+        page_size = int(request_get_dict.get('page_size', '10')) if request_get_dict.get('page_size', '10') else 10
+    except (ValueError, TypeError):
+        page_size = 10
+
     filter_data = {
         'filter_month_year': request_get_dict.get('filter_month_year', today.strftime('%Y-%m')),
         'filter_date': request_get_dict.get('filter_date'),
-        'page': int(request_get_dict.get('page', '1')),
-        'page_size': int(request_get_dict.get('page_size', '10')),
+        'page': page,
+        'page_size': page_size,
         'sort_by': request_get_dict.get('sort_by'),
         'transaction_type': request_get_dict.get('transaction_type')
     }
+
     if filter_data.get('filter_date'):
         try:
             if isinstance(filter_data['filter_date'], str):
@@ -45,13 +58,17 @@ def _get_bank_filter_params_from_request(request_get_dict: dict) -> BankTransact
         except (ValueError, TypeError):
             filter_data['filter_date'] = None
             filter_data['filter_month_year'] = today.strftime('%Y-%m')
+    
     try:
         return BankTransactionFilterInputSchema.model_validate(filter_data)
     except ValidationError:
-        return BankTransactionFilterInputSchema(filter_month_year=today.strftime('%Y-%m'), page=1, page_size=10)
+        return BankTransactionFilterInputSchema(
+            filter_month_year=today.strftime('%Y-%m'),
+            page=1,
+            page_size=10
+        )
 
 # --- Main View & Balance Setting ---
-
 
 
 @require_GET
@@ -59,27 +76,35 @@ async def bank_log_main_view(request: HttpRequest) -> HttpResponse:
     filters = _get_bank_filter_params_from_request(request.GET.dict())
     # Call the refactored service method
     context_data: BankLogContextData = await BankLogService.get_transactions_context_data(filters)
+    print(context_data.model_dump())
 
     context = {
-        'data': context_data,  # Contains pagination and all other data
+        'data': context_data.model_dump(),  # Contains pagination and all other data
         'add_button': {
-            'name': 'Add Transaction', 
+            'name': 'Add Transaction',
             'url': reverse('bank_balance_log:add_transaction_form_row'),
             "target": "tbody#Htb_Htable",
-            'swap': "afterend"
+            'swap': "beforeend"
         },
         'target': "Htable",
-        'list_url': reverse('bank_balance_log:bank_log_main_view'),
+        'list_url': reverse('bank_balance_log:bank_log_main'),
+        'columns': ['date_logged', 'transaction_type', 'amount', 'description', 'balance_after_transaction'],
+        'menu_items': [
+            {'name': 'Monthly Log', 'url': reverse(
+                'monthly_log:monthly_log_main')},
+            {'name': 'Bank Balance Log', 'url': reverse(
+                'bank_balance_log:bank_log_main')}
+        ],
     }
+
     template_name = 'cotton/components/table/index.html' if request.htmx else 'bank_balance_log/index.html'
     # Example for targeting only table body
     if request.htmx and request.headers.get("HX-Target") == "Htb_Htable":
         template_name = 'cotton/components/table/table_body.html'
 
     response = render(request, template_name, context)
-    response.headers['HX-Trigger'] = f'{{"currentSortChanged": "{context_data.sort_by}"}}'
+    response.headers['HX-Trigger'] = f'{{"currentSortChanged": "{context_data.current_filters_applied.sort_by}"}}'
     return response
-
 
 
 @require_POST
@@ -113,7 +138,6 @@ async def add_bank_transaction_form_row_view(request: HttpRequest) -> HttpRespon
     return render(request, 'bank_balance_log/partials/add_row.html', {})
 
 
-
 @require_POST
 async def save_new_bank_transaction_view(request: HttpRequest) -> HttpResponse:
     try:
@@ -145,7 +169,6 @@ async def save_new_bank_transaction_view(request: HttpRequest) -> HttpResponse:
         new_transaction_obj)
     context = {'row': transaction_schema}
     return render(request, 'bank_balance_log/partials/row.html', context)
-
 
 
 @require_http_methods(["GET", "POST"])

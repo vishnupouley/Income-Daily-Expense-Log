@@ -1,7 +1,7 @@
 {% load static custom_filters %}
 <ul class="flex flex-wrap -mb-px justify-content-space-around w-100 ps-10">
     {% for menu in menu_items %}
-        <li class="me-2 flex-1 text-center border-b-4 border-text-light {% if active_menu == menu.id %}manage-menu-active font-medium text-primary border-primary rounded-t-lg active dark:text-primary dark:border-primary {% endif %}">
+        <li class="me-2 flex-1 text-center border-b-4 border-text-light {% if request.path == menu.url %}manage-menu-active font-medium text-primary border-primary rounded-t-lg active dark:text-primary dark:border-primary {% endif %}">
             <a href="{{ menu.url }}"
                class="text-black p-4 border-b-2 border-transparent rounded-t-lg flex justify-center">
                 {{ menu.name }}

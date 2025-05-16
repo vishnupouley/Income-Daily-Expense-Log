@@ -1,15 +1,15 @@
 {% load static custom_filters %}
 <div class="{{ target }}">
-    <c-components.table.table-header selected_date="{{ selected_date }}" :date_list="date_filters" list_url="{{ htmx.list_url }}" target="{{ htmx.target }}" per_page="{{ pagination.per_page }}"></c-components.table.table-header>
+    <c-components.table.table-header :add_button="add_button" selected_date="{{ filter_date }}" :date_list="date_filters" list_url="{{ list_url }}" target="{{ target }}" page_size="{{ pagination.per_page }}"></c-components.table.table-header>
     <div class="h-min-[36rem] overflow-y-auto overflow-x-auto overflow-hidden custom-scrollbar px-2 pb-3">
-        <c-components.table.alpine-cover current_sort="{{ current_sort }}" target="{{ target }}">
+        <c-components.table.alpine-cover current_sort="{{ data.current_filters_applied.sort_by }}" target="{{ target }}">
         <table class="min-w-full border-collapse border border-surface-light">
-            <c-components.table.table-head :columns="columns" target="{{ target }}" list_url="{{ list_url }}" current_sort="{{ current_sort }}"
-            {% if selected_date %}selected_date="{{ selected_date }}"{% endif %}
-            :pagination="pagination"></c-components.table.table-head>
+            <c-components.table.table-head :columns="columns" target="{{ target }}" list_url="{{ list_url }}" current_sort="{{ data.current_filters_applied.sort_by }}"
+            {% if filter_date %}selected_date="{{ filter_date }}"{% endif %}
+            :pagination="data.pagination"></c-components.table.table-head>
             <c-components.table.table-body :data="data" :columns="columns" target="{{ target }}" :widget_columns="widget_columns"></c-components.table.table-body>
         </table>
         </c-components.table.alpine-cover>
     </div>
-    <c-components.table.table-footer :pagination="pagination" target="{{ htmx.target }}" list_url="{{ htmx.list_url }}"></c-components.table.table-footer>
+    <c-components.table.table-footer :pagination="data.pagination" target="{{ target }}" list_url="{{ list_url }}"></c-components.table.table-footer>
 </div>
