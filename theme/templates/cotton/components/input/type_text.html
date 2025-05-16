@@ -1,13 +1,13 @@
 <div class="relative text-xs">
-    <div class="absolute flex items-center justify-start bg-surface-light left-5 top-0 h-1 px-2">
+    <div class="absolute flex items-center justify-start bg-secondary left-5 top-0 h-1 px-2">
         <label for="{{ id }}" class="block font-thin">{{ slot }}
         {% if required %}
         <span class="text-danger">*</span>
         {% endif %}    
         </label>
     </div>
-    
+
     <input type="text"
     {{ attrs }}
-    class="block w-full border-secondary rounded-md shadow-input px-7 py-4 appearance-none text-xs focus:outline-none focus:ring-0 focus:border-primary">
+    class="block w-full border-light rounded-md shadow-input px-7 py-4 appearance-none text-xs focus:outline-none focus:ring-0 focus:border-primary">
 </div>

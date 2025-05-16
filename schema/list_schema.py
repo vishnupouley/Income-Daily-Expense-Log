@@ -29,6 +29,7 @@ class PaginationDetails(BaseModel):
     page_size: int  # Renamed from per_page for consistency with input schema
     total_items: int  # Renamed from total_data
     total_pages: int
+    page_range: Optional[List[int]] = [1]
     has_next_page: bool
     has_previous_page: bool
     next_page_number: Optional[int] = None
@@ -37,7 +38,7 @@ class PaginationDetails(BaseModel):
     end_item_index: Optional[int] = None   # 0-based index for slicing
     display_start_item: Optional[int] = None  # 1-based for display
     display_end_item: Optional[int] = None   # 1-based for display
-    page_range: Optional[List[int]] = [5, 10, 15, 20, 25]
+    per_page_options: Optional[List[int]] = [5, 10, 15, 20, 25]
 
 
 class ColumnInfo(BaseModel):

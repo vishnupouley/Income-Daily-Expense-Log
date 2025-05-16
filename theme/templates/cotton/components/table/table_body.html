@@ -1,6 +1,6 @@
 {% load static i18n custom_filters %}
 <tbody id="hTB_{{ target }}" class="bg-secondary">
-    {% for row in data %}
+    {% for row in data.transactions %}
         <tr id="hTR_{{ target }}_{{ row.id }}"
             class="even:bg-secondary odd:bg-surface-light text-nowrap">
             {% for column in columns %}
@@ -12,7 +12,7 @@
             {% endfor %}
         </tr>
     {% endfor %}
-    {% if not data %}
+    {% if not data.transactions %}
         <tr class="even:bg-secondary odd:bg-surface-light">
             <td colspan="{{ columns|length }}"
                 class="px-6 py-4 border-b text-center font-medium">{% trans "No Record Found" %}</td>

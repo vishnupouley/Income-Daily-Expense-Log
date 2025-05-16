@@ -1,3 +1,36 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.json-table-active-sort {
+    /* gray-800 */
+    stroke: #1f2937;
+    stroke-width: 2;
+}
+
+.json-table-inactive-sort {
+    /* gray-400 */
+    stroke: #9ca3af;
+    stroke-width: 1.5;
+}
+
+.json-table-sort-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.no-spinner {
+    /* For Chrome, Safari, newer Edge */
+    -webkit-appearance: textfield;
+    /* For Firefox */
+    -moz-appearance: textfield;
+    /* Standard syntax */
+    appearance: textfield;
+}

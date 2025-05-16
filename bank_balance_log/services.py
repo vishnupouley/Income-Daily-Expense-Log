@@ -119,6 +119,7 @@ class BankLogService:
             page_size=params.page_size,
             total_items=total_items,
             total_pages=total_pages,
+            page_range=list(range(1, total_pages + 1)),
             has_next_page=current_page < total_pages,
             has_previous_page=current_page > 1,
             next_page_number=current_page + 1 if current_page < total_pages else None,
@@ -127,7 +128,7 @@ class BankLogService:
             end_item_index=end_item_index -1 if total_items > 0 else None,
             display_start_item=start_item_index + 1 if total_items > 0 else 0,
             display_end_item=min(end_item_index, total_items) if total_items > 0 else 0,
-            page_range=[5, 10, 15, 20, 25]
+            per_page_options=[5, 10, 15, 20, 25]
         )
 
         return BankLogContextData(
@@ -135,7 +136,7 @@ class BankLogService:
             transactions=processed_transaction_schemas,
             date_filters=BankLogService._get_last_n_unique_transaction_dates_sync(10),
             pagination=pagination_details,
-            current_filters_applied=params
+            current_filters_applied=params,
         )
 
     @staticmethod

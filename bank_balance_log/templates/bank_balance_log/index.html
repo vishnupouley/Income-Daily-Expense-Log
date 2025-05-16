@@ -3,19 +3,22 @@
     <div class="flex-1 max-h-screen bg-secondary">
         <div>
             <main class="flex-2 bg-secondary">
+                <c-top-navbar name="Bank Balance Log"></c-top-navbar>
+                <c-menu-tab></c-menu-tab>
                 <div class="px-6 py-2 bg-secondary">
                     <div class="grid flex-1 grid-cols-12 h-fit grid-rows-12">
                         <div 
-                            hx-get="{% url 'bank_balance_log:bank_log_main' %}"
+                            hx-get="{{ list_url }}"
                             hx-trigger="htmx:refreshTable"
                             class="col-span-full col-start-1 row-span-full row-start-1"
                             id="{{ target }}">
-                            <c-table
+                            <c-components.table
                                 :data="data" 
                                 :columns="columns" 
-                                :current_sort="current_sort"
-                                :pagination="pagination" >
-                            </c-table>
+                                :current_sort="data.current_filters_applied.sort_by"
+                                :pagination="data.pagination" >
+                            </c-components.table>
+                            {{ data }}
                         </div>
                     </div>
                 </div>
