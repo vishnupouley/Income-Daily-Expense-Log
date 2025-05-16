@@ -1,0 +1,22 @@
+<div class="flex-1 relative text-xs">
+    <div class="absolute flex items-center justify-start bg-text-light left-5 top-0 h-1 px-2">
+        <label for="{{ id }}" class="block font-thin">{{ slot }}
+        {% if required %}
+        <span class="text-danger">*</span>
+        {% endif %}    
+        </label>
+    </div>
+
+    <select {{ attrs }} class="block w-full border-secondary rounded-md shadow-input px-7 py-4 appearance-none text-xs focus:outline-none focus:ring-0 focus:border-secondary">
+        <option value="" {% if not value %}selected{% endif %}>{{ placeholder }} </option>
+        {% if name == 'timezone' or name == 'year' %}
+            {% for data in options %}
+                <option value="{{ data.id }}" {% if value == data.id %}selected{% endif %} >{{ data.name }}</option>
+            {% endfor %}
+        {% else %}
+            {% for data in options %}
+                <option value="{{ data.id }}" {% if value|add:0 == data.id %}selected{% endif %} >{{ data.name }}</option>
+            {% endfor %}
+        {% endif %}
+    </select>
+</div>

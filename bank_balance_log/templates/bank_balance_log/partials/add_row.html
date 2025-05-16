@@ -1,0 +1,31 @@
+{% load static custom_filters %}
+<tr id="Htable_add_row" class="even:bg-secondary odd:bg-text-light">
+    <td class="px-6 py-2 last:rounded-r-md first:rounded-l-md">
+        <c-components.input.type-text name="date_logged" placeholder="Date" value="{{ today }}" readonly></c-components.input.type-text>
+    </td>
+    <td class="px-6 py-2 last:rounded-r-md first:rounded-l-md">
+        <c-components.input.type-select name="transaction_type" placeholder="Transaction Type" :options="[{id: 1, name: 'Credit'}, {id: 2, name: 'Debit'}]" readonly></c-components.input.type-select>
+    </td>
+    <td class="px-6 py-2 last:rounded-r-md first:rounded-l-md">
+        <c-components.input.type-text name="amount" placeholder="Amount" value="" readonly></c-components.input.type-text>
+    </td>
+    <td class="px-6 py-2 last:rounded-r-md first:rounded-l-md">
+        <c-components.input.type-text name="description" placeholder="Description" value="" readonly></c-components.input.type-text>
+    </td>
+    <td class="px-6 py-2 last:rounded-r-md first:rounded-l-md">
+        <button type="button"
+                class="bg-primary text-secondary px-6 py-2 rounded-md shadow-input"
+                hx-post="{% url 'bank_balance_log:save_new_bank_transaction' %}"
+                hx-trigger="click"
+                hx-target="closest tr"
+                hx-swap="outerHTML">Save</button>
+    </td>
+    <td class="px-6 py-2 last:rounded-r-md first:rounded-l-md">
+        <button type="button"
+                class="bg-primary text-secondary px-6 py-2 rounded-md shadow-input"
+                hx-get="{% url 'bank_balance_log:cancel_add_transaction_row' %}"
+                hx-trigger="click"
+                hx-target="closest tr"
+                hx-swap="outerHTML">x</button>
+    </td>
+</tr>
